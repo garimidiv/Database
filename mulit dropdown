@@ -1,0 +1,53 @@
+Option Explicit
+
+Private Sub Worksheet_Change(ByVal Target As Range)
+Dim rngDV As Range
+Dim oldVal As String
+Dim newVal As String
+Dim strVal As String
+Dim i As Long
+Dim lCount As Long
+Dim Ar As Variant
+On Error Resume Next
+Dim lType As Long
+If Target.Count > 1 Then GoTo exitHandler
+
+lType = Target.Validation.Type
+If lType = 3 Then
+    Application.EnableEvents = False
+    newVal = Target.Value
+    Application.Undo
+    oldval = Target.Value
+    Target.Value = newVal
+    If Target.Column = 3 Then
+        If oldVal = "" Then
+        Else
+            If newVal = "" Then   
+            Else
+                On Error Resume Next
+                Ar = Split(oldVal, ", ")
+                strVal = ""
+                For i = LBound(Ar) To UBound(Ar)
+                    Debug.Print strVal
+                    Debug.Print CStr(Ar(i))
+                    If newVal = CStr(Ar(i)) Then
+                        strVal = strVal
+                        lCount = 1
+                    Else
+                        strVal = strVal & CStr(Ar(i)) & ", "
+                    End If
+                Next i
+                If lCount > 0 Then
+                    Target.Value = Left(strVal, Len(strVal) - 2)
+                Else
+                    Target.Value = strVal & newVal
+                End If
+            End If
+        End If
+    End If
+End If
+
+exitHandler:
+  Application.EnableEvents = True
+End Sub
+
