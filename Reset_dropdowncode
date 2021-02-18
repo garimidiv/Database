@@ -1,0 +1,9 @@
+Option Explicit
+
+
+Private Sub Worksheet_Change(ByVal Target As Range)
+    If Target.Address = "$G$4" Then
+        Range("G6:H6").Value = "Please Select..."
+        
+    End If
+End Sub
