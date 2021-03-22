@@ -1,0 +1,391 @@
+GALM T0 RSBPNL facilitates the production of daily T+0 RSBPL estimates by every GALM trading desk, evidencing the root cause of changes to their P&L, the impact of market moves and hedging strategies on daily risk exposures.
+It integrates within BUC T+1 review and formal sign-off process with appropriate escalation and commentary. Creates commentary layer with common language across trading silos and risk-taking history. Uses data repositories to aggregate risks and allow senior management overview and drill-down across risks.
+
+More details on the application can be found in i-SAC and ECMS (search application "CSZ - A1S GALM TO PNL RSB CLIENT").
+
+Business severity
+Production of this P&L estimate on T+0 is a Key Procedural Control of the GALM business, and is something that the business have to attest to, as part of their SOX review process, and is something that may well form part of external audit/regulatory review. By not producing this number on T+0 they are unable to allow senior business stakeholders to understand any potential significant issues that have arisen through the days trading activities which may alert them to operational risk events as well as trading and market issues. Potentially could be very severe if material issues is trading activity, market movements or operational risk are not alerted to senior stakeholders on a timely basis.
+In case when it is not possible to calculate the PnL estimate for T0, the business and IT stakeholders need to be notified of this. If the issue preventing calculation of mentioned PnL estimate, is not resolved by 10:30AM London Time the following day, then PnL estimate calculations for the next T0 are to be initiated and the business and IT stakeholders need to receive a message clearly informing them of this.
+No data rolls are to be performed.
+
+Availability / hours of operation
+Business hours
+The solution is in operation from 2AM to 11PM London time. A peak of usage can be observed twice a day, between:
+
+22:00 and 22:30 LDN Time (AMER region)
+17:00 and 17:30 LDN Time (EMEA and APAC region)
+Maintenance windows
+Planned maintenance can be performed between 23:00 and 2:00 LDN Time on weekdays and all day on weekends.
+
+Key components
+The application is comprised of 2 databases, an OLAP CUBE and various front-end elements.
+For a detailed walkthrough of the architecture, please lookup the corresponding Confluence page.
+
+Application delivery
+Steps to complete prior to a release 
+Organise Jira into release version
+Contact Test team, send release Jira list and obtain QAP null
+Update Jiras to show release ready status.  Add testing signoff emails from Business if available.
+Create SDLC Jira for release and get Test team to attach QAP
+
+Raise Change request on GSNOW
+Join CAB meeting
+Do fortify scan on code base
+Upload fortify file artefact into fortify system
+Email SH-Secure-Dev@ubs.com  to request ORF2 report and attach to change request
+Attach QAP
+Submit Change for approval and chase
+Releasing code 
+All front-end Excel tools are deployed via ADT.
+Please refer to the "Profile request process" for more details and also be sure to go over the information available in external links here.
+All other parts of this solution follows a deployment process described in this document.
+
+Software components
+This solution is comprised of a single Software Component: AA42761
+
+SLA's
+CURRENTLY: There are two SLA times, depending on the affected region:
+
+complete calculating PnL data for AMER by 22:30 LDN time.
+complete calculating PnL data for EMEA and APAC by 17:30 LDN time.
+In case of a failing the above SLAs, the GALM desks would be in breach of the company's policy. Please refer to Business Severity above for more details about SLA breaches.
+
+Legal and Compliance
+Access restrictions
+CURRENTLY: None. Any employee of the bank can request access.
+Auditing requirements
+CURRENTLY: None.
+Data retention
+The main database in use (GALMT0RSBPNL) will retain:
+1 years' worth of all data
+5 years' worth of month-end data
+The GALMT0RSBPNL database will utilise the S/S/S approach.
+Daily / Monthly / Yearly
+S = Short Term (6 weeks)
+Database backups are performed automatically and are scheduled by the MS SQL DBA Support team.
+This means that a backup will be automatically taken every day, week and month and this backup file will be kept for 6 weeks. After that, the file is deleted and replaced with a backup file taken more recently.
+
+------
+
+The GALM T0 RSBPNL solution is comprised of an OLTP database where the majority of the business logic resides, a Data Warehouse (OLAP database) and a CUBE.
+There are various data feeds going into the OLTP database from upstream systems.
+There is also a front-end layer in Excel.
+
+
+
+
+OLTP database
+The OLTP database - GALMT0RSBPNL - is the core of the software solution.
+It hosts 99% of all the data processing logic and without it, the Excel front-end tools are useless.
+It is divided into a number of schemas. Which hold database objects pertaining to certain data.
+The available schemas are as follows:
+
+Admin
+Responsible for holding objects pertaining to database administration.
+Much of these are no longer used as they have been deemed unnecessary and due to conflicting with bank wide standards.
+Archive
+This schema holds all objects pertaining to the archiving process, which includes tables (which are clones of tables in other schemas) and stored procedures.
+Audit
+This schema was used to implement a custom made monitoring solution for the database. It is mostly not used now.
+Control
+This schema holds objects pertaining to end business user access. It is comprised of a few tables and stored procedures which are part of a mechanism that determines end user access to certain features of the Excel front-end tools.
+Curve
+This schema holds all objects pertaining to Curve data captured from upstream systems.
+Enriched
+This schema holds data from various upstream systems, which has enriched or processed in some way.
+FV
+This schema holds tables intended as the final storage place for "Fair Value" data.
+Global
+This schema holds mainly functions and stored procedures which are common among other schemas.
+META
+This schema holds various metadata and mappings.
+PB
+This schema holds tables intended to store Price Based pnl data.
+PV
+This schema holds tables intended to store Price Variable data.
+RSB
+This schema holds tables intended to store Risk Based PnL data.
+Staging
+This schema holds tables to store data captured in it's RAW form from upstream systems. Usually this is the first step for the data, the second is in the Enriched schema, and the third is in the final holding tables of various schemas.
+
+
+CURRENT SECURITY SETUP
+
+Currently access to the database is granted through a membership in various Active Directory groups.
+Each of these groups has a server-level login and database level user account, which then has various custom database roles assigned.
+The business users of the software solution have read-only access to most of the database objects. The only exception is a table which is used to store their "pnl explain commentary", access to which is granted via running stored procedures which perform the edits / inserts.
+
+
+
+The current ERD diagram for this database can be found here.
+
+
+
+OLAP database
+The OLAP database - GALMT0RSBPNL_DW - is divided into a number of schemas outlined below.
+
+config
+Holds a few tables used to store configuration settings which are used in processing data captured from the OLTP database and also CUBE processing.
+DW
+This schema holds the denormalised data used later in the CUBE.
+Staging
+This schema holds tables and views used to capture data from the OLTP database and prepare it for processing.
+Control
+This schema holds a single function used in many stored procedures.
+Admin
+This schema holds a single stored procedure used to clear old data from the database.
+ 
+CURRENT SECURITY SETUP
+
+Currently access to the database is granted through a membership in various Active Directory groups. Each of these groups has a server-level login and database level user account, which then has various custom database roles assigned.
+
+
+Troubleshooting issues with the Excel tools
+All of the GALM T0 tools have been deployed using ADT, which means that they will be available to an end user on every ADT client enabled UBS workstation, that user logs onto. ADT works by storing a copy of application files on a set of servers and then distributing those files to workstations with ADT client installed.
+When an end user logs on to such workstation, ADT will synchronise it with the ADT servers based on the access rights that user holds.
+These files will be stored in (for example): "C:\Users\grzybema\AppData\Local\UBS\ADT.Client\", with each application having its subfolder.
+IMPORTANT: The tricky part is that the subfolders in the above mentioned directory will be named very strangely, as the names of the subfolders containing the local cached copy of the Excel tools and their logs, will have the same names as the file package hash values created when the tools have been released via ADT.
+These can for example be like this - af517f51-f126-475f-8a8d-88d56f20aa12.
+In addition, each time a new version of a particular Excel tool is released, the local ADT application cache will be updated and the name of the subfolder will change.
+Dou to that, it's better to simply look inside each of the folders or perform a search for excel files with names corresponding to the names of the tools.
+
+When located, inside such application subfolders, along with the application files relating to each of the GALM T0 Excel tools, a log file will be created for a particular run date. The log files will be named according to the following convention: "EUA.DB.Interface.Log.YYYYMMDD.txt".
+Inside these files, various information will be logged, including the names of database stored procedures called to retrieve data from the central GALMT0 database as well as the order in which those stored procedures were called.
+These log files will contain lots of useful data that could aid in troubleshooting (perceived) issues with the Excel front-end tools.
+
+
+
+Skip to end of metadata
+Created by Mateusz Grzybek, last modified by Animesh Kumar on May 11, 2020Go to start of metadata
+Housekeeping
+File system - purging, archiving
+None at the moment. No policy has been established regarding purging or archiving data from the network shares used by the solution.
+
+Database - purging, archiving
+This pertains only to the OLTP database - GALMT0RSBPNL.
+The GALM Dev team has implemented a temporary archiving solution. It's an in-house built approach comprised of tables, stored procedures and SQL agent jobs. Dynamic SQL is at the core of this solution. Individual database tables can be archived, however some manual steps are required from the develop(s):
+
+Select a table or tables to be archived.
+Clone the structure of each table selected for archiving, to create copies of mentioned tables in the Archive database schema.
+Add an entry into the Admin.tTableArchiveConfigurations table to link the live table or tables, with their respective clones in the Archive schema. This mapping table allows to determine the retention period (in days), batch size (while copying data between tables).
+(Optional step) In case where the table(s) to be archived is a source of data for a stored procedure, which is used to retrieve mentioned data for one of the front-end Excel tools, then a clone of this stored procedure should be created in the Archive schema. It must follow this naming convention: Archive.name of original schema_name of original stored procedure and it must reference the 'archive clone' of the original table. An entry needs to be made in table Control.CallingFunctionToStoredProcMapping supplying the newly created stored procedure. This will ensure that when a call is made from within any Excel spreadsheet, requesting data, if that data is not available in the main table, the .NET library used to source data from GALM's database, will try to get the data from the relevant archive table but running the 'archive stored procedure' supplied in Control.CallingFunctionToStoredProcMapping .
+No intervention in regards to archiving or purging should be made into the OLAP database - GALMT0RSBPNL_DW
+
+Database - performance, index rebuilding
+The following table describes the methods currently put in place to maintain and improve database performance.
+
+Database health check	SQL Agent Job	UBSMWE_WFST_DBCheck (GALMT0RSBPNL)	Ad-hoc	Built into MS SQL Server
+Index rebuild	SQL Agent Job	UBSMWE_WFST_IDXReBld (GALMT0RSBPNL)	Ad-hoc	Built into MS SQL Server
+Update table statistics	SQL Agent Job	UBSMWE_WFST_IDXUpdSt (GALMT0RSBPNL)	Ad-hoc	Built into MS SQL Server
+Database health check	SQL Agent Job	UBSMWE_WFST_DBCheck (GALMT0RSBPNL_DW)	Ad-hoc	Built into MS SQL Server
+Index rebuild	SQL Agent Job	UBSMWE_WFST_IDXReBld (GALMT0RSBPNL_DW)	Ad-hoc	Built into MS SQL Server
+Update table statistics	SQL Agent Job	UBSMWE_WFST_IDXUpdSt (GALMT0RSBPNL_DW)	Ad-hoc	Built into MS SQL Server
+Monitoring
+List of daily checks
+Currently the only checks to be performed are monitoring for e-mail messages notifying of errors and/or failures of any of the SQL Agent jobs which form the solution's daily data batch.
+
+Alerts and Logs
+As mentioned above alerts will be generated in the form of e-mail messages from T0PNL DB Monitor (t0pnlapp@ubs.com).
+Some error messages may be forwarded in by the business users but those will be pertaining to the Excel tools only.
+
+There are several logs available for review, pertaining to different parts of the solution.
+
+Information pertaining to the data batch will be contained within dbo.sysjobs, dbo.sysjobhistory and dbo.sysjobactivity tables which are in the MSDB database.
+Very useful queries are contained within the code of the Admin.SendJobStatusNotification stored procedure.
+
+Information on all SSIS package execution can be found in the catalog.executions table on the SSISDS database.
+The following SQL code can be used to get relevant data from that table:
+/*
+
+Use this to view messages from SSIS executions. By default it shows the latest job that ran.
+
+To view a particular package change the package_name filter below and use the operation_id in the WHERE clause of the inner SELECT in the main query.
+
+SELECT TOP 10 em.operation_id, em.package_name, message_time=max(message_time) FROM SSISDB.catalog.event_messages em WHERE package_name='DailyLoadMaster.dtsx' GROUP BY em.operation_id, em.package_name ORDER BY max(message_time) DESC
+
+*/
+
+SELECT event_message_id,MESSAGE,package_name,event_name,message_source_name,package_path,execution_path,message_type,message_source_type
+
+FROM (
+
+SELECT em.*
+
+FROM SSISDB.catalog.event_messages em
+
+WHERE em.operation_id = (SELECT MAX(execution_id) FROM SSISDB.catalog.executions)
+
+AND event_name NOT LIKE '%Validate%'
+
+)q
+
+/* Put in whatever WHERE predicates you might like*/
+
+--WHERE event_name = 'OnError'
+
+--WHERE package_name = 'Package.dtsx'
+
+--WHERE execution_path LIKE '%<some executable>%'
+
+ORDER BY message_time DESC
+
+
+Information pertaining the batch process of the OLAP database (data warehouse) and CUBE processing can be found in dw.AuditTableProcessing, dw.AuditCubeProcessing and dw.AuditBatchRun tables.
+The following SQL code can be used to return relevant data from these tables
+SELECT TOP (1000) [BatchRunKey]
+,[PnLDate]
+
+,[ValuationSystemRegion]
+
+,[Action]
+
+,[ExecStartDT]
+
+,[ExecStopDT]
+
+,duration_mins=datediff(MINUTE,execstartdt,execstopdt)
+
+,[SuccessfulProcessingInd]
+
+,[ErrorDescription]
+
+FROM [GALMT0RSBPNL_DW].[DW].[AuditBatchRun]
+
+order by BatchRunKey desc
+
+select duration_secs=datediff(SECOND,execstartdt,execstopdt), * from GALMT0RSBPNL_DW.dw.AuditTableProcessing where BatchRunKey = (select max(BatchRunKey) from GALMT0RSBPNL_DW.dw.AuditBatchRun) order by TableName
+
+select duration_mins=datediff(MINUTE,execstartdt,execstopdt), * from GALMT0RSBPNL_DW.dw.AuditCubeProcessing where BatchRunKey = (select max(BatchRunKey) from GALMT0RSBPNL_DW.dw.AuditBatchRun)
+
+　
+
+Information on partitions that a particular database table has can be retried as well. This might be useful for diagnostic or performance tuning purposes.
+The following SQL code can be used to display partition data, simply change the name of the target table:
+DECLARE @TableName NVARCHAR(200) = N'DW.FactRSBDailyPnL'
+
+
+SELECT SCHEMA_NAME(o.schema_id) + '.' + OBJECT_NAME(i.object_id) AS [object]
+
+, p.partition_number AS [p#]
+
+, fg.name AS [filegroup]
+
+, p.rows
+
+, au.total_pages AS pages
+
+, CASE boundary_value_on_right
+
+WHEN 1 THEN 'less than'
+
+ELSE 'less than or equal to' END as comparison
+
+, rv.value
+
+, CONVERT (VARCHAR(6), CONVERT (INT, SUBSTRING (au.first_page, 6, 1) +
+
+SUBSTRING (au.first_page, 5, 1))) + ':' + CONVERT (VARCHAR(20),
+
+CONVERT (INT, SUBSTRING (au.first_page, 4, 1) +
+
+SUBSTRING (au.first_page, 3, 1) + SUBSTRING (au.first_page, 2, 1) +
+
+SUBSTRING (au.first_page, 1, 1))) AS first_page
+
+FROM sys.partitions p
+
+INNER JOIN sys.indexes i
+
+ON p.object_id = i.object_id
+
+AND p.index_id = i.index_id
+
+INNER JOIN sys.objects o
+
+ON p.object_id = o.object_id
+
+INNER JOIN sys.system_internals_allocation_units au
+
+ON p.partition_id = au.container_id
+
+INNER JOIN sys.partition_schemes ps
+
+ON ps.data_space_id = i.data_space_id
+
+INNER JOIN sys.partition_functions f
+
+ON f.function_id = ps.function_id
+
+INNER JOIN sys.destination_data_spaces dds
+
+ON dds.partition_scheme_id = ps.data_space_id
+
+AND dds.destination_id = p.partition_number
+
+INNER JOIN sys.filegroups fg
+
+ON dds.data_space_id = fg.data_space_id
+
+LEFT OUTER JOIN sys.partition_range_values rv
+
+ON f.function_id = rv.function_id
+
+AND p.partition_number = rv.boundary_id
+
+WHERE i.index_id < 2
+
+AND o.object_id = OBJECT_ID(@TableName)
+
+and au.total_pages <>0
+
+order by rv.value desc;
+
+
+Troubleshooting
+This diagram showcases the general troubleshooting methodology. It deals with the data batch as that is where over 90% of issues will arise.
+
+
+
+Known issues
+Data job JT0_DW_LOAD_CALC has failed.
+The cause is most likely a failure of the data jobs it depends on - JT0_REM_PNL_LOAD and JT0_DATA_SENSITIVITY_AND_POSITIONS_LOADER.
+This job runs the same SSIS package (DailyLoadMaster.dtsx) three times, once for each region APAC, EMEA and AMER. By default this package calculates the PnLDate as the current date.
+Once the dependent jobs have completed successfully it should be possible to simply re-run this job as long as it runs on the same day. If you need to re-run for a previous day the best way to re-run is to run the package directly and pass the PnL Date as a parameter:
+In SQL Server Management Studio (SSMS) connect to the database server
+Expand Integration Services Catalogs/SSISDB/T0RSBPNL/GALMT0RSBPNL_DW
+Right-click DailyLoadMaster > Execute…
+Supply the parameters:
+Action=Calc
+DoCubeProcessing=False first and second time, True for the third time
+PnLDate=the required date – this job runs at T+1 so this would be the business date before the job was scheduled
+Region=APAC
+Click OK and view the Overview report. Refresh the report until it has completed.
+Assuming it is successful repeat steps 3 to 5 for Region=EMEA and Region=AMER. Note that for the third time (Region=AMER) we set DoCubeProcessing=True
+
+
+Data job JT0_DW_LOAD_REC has failed.
+The cause is most likely a failure of the data job it depends on - JT0_DATA_BOND_AND_BROIL_ACTUALS_LOADER and JT0_DW_LOAD_CALC. This job runs the SSIS package DailyLoadMaster.dtsx once and passes the parameter Action=Rec. If it needs to be re-run on the same day simply re-run the job.
+If it needs to be re-run after the day that it failed the best way to re-run is to run the package directly and pass the PnL Date as a parameter:
+In SQL Server Management Studio (SSMS) connect to the database server
+Expand Integration Services Catalogs/SSISDB/T0RSBPNL/GALMT0RSBPNL_DW
+Right-click DailyLoadMaster > Execute…
+Supply the parameters:
+Action=Rec
+DoCubeProcessing= True
+PnLDate=the required date – this job runs at T+1 so this would be the business date before the job was scheduled
+Region=blank (i.e. actually blank, not the word blank)
+Click OK and view the Overview report. Refresh the report until it has completed.
+
+
+Alert warning of database queries running longer than 20 minutes.
+This notification is sent out by an automated process in the form of a SQL Agent job "ADM_T0_LONGRUNNING_SQL". This job monitors the GALMT0RSBPNL database for long running SQL queries. The causes for this alert may be many however the most common are database statistics / indexes going out of date. Normally a database maintenance plan is in place that refreshes these based on a pre-set schedule. In absence of such a plan or in case it fails, the result can be that some database queries processing large amounts of data run longer than 20 minutes resulting in this alert. The resolution steps on a normal day is as follows but please get DEV involved during this:
+The alert email will have a SPID. Make a note of it.
+Run the built-in system stored procedure SP_WHO2 on the DB Server to check on the SPID and other transactions to check for deadlocks.
+If deadlocks are present, kill the causing transactions, noting what they are as they will need to be rerun. Then kills the causing SPID as well. The command for this is kill SPID (example: kill 20)
+After all offending SPIDs are killed run the command sp_updatestats. This will update DB statistics / indexes.
+Then re-run the job(s) that caused the issue in chronological order.
+
+
+Data job JT0_DATA_CURVE_AND_PNLCALC_LOADER_AMER or JT0_DATA_CURVE_AND_PNLCALC_LOADER_EMEA has failed because it cannot access a file.
+The cause is most likely an issue with one of the upstream systems delivering the file either late (after the job is scheduled to start).
+Resolving such issues is described by the diagram above.
